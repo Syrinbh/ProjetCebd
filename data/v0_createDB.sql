@@ -1,14 +1,4 @@
-
-DROP TABLE IF EXISTS LesSportifs;
-DROP TABLE IF EXISTS LesEquipes;
-DROP TABLE IF EXISTS LesEpreuvesIndividuelles;
-DROP TABLE IF EXISTS LesEpreuvesParEquipe;
-DROP TABLE IF EXISTS LesMembresEquipes;
-DROP TABLE IF EXISTS LesMedaillesIndividuelle;
-DROP TABLE IF EXISTS LesMedaillesEquipe;
-DROP TABLE IF EXISTS LesInscriptionsEpreuvesIndividuelles;
-DROP TABLE IF EXISTS LesInscriptionsEpreuvesParEquipes;
-
+PRAGMA foreign_keys = on; 
 CREATE TABLE LesSportifs(
 idS        number(4),
 nom        VARCHAR2(20),
