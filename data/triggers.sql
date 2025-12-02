@@ -124,30 +124,50 @@ BEGIN
             'Une équipe ne peut pas avoir deux médailles pour la même épreuve');
     END IF;
     
-    -- Si on arrive ici, toutes les vérifications sont passées
-    -- L'insertion peut se poursuivre normalement
 END;
 /
 
 -- ====================================================================
--- NOTES IMPORTANTES:
+-- TRIGGER: VerifierMemePaysEquipe
+-- OBJECTIF: Vérifier que tous les sportifs d'une même équipe sont du même pays
+--           (contrainte explicitement mentionnée dans l'énoncé)
+-- ÉNONCÉ: "Tous les sportifs d'une même équipe doivent être du même pays."
 -- ====================================================================
--- 1. Ces triggers s'exécutent AVANT l'insertion (BEFORE INSERT)
---    → Ils peuvent empêcher une insertion invalide
---    → Ils ne modifient pas les données, seulement les valident
---
--- 2. Les codes d'erreur:
---    -20001: Sportif non inscrit (individuel)
---    -20002: Doublon de sportif (individuel)
---    -20003: Équipe non inscrite (par équipe)
---    -20004: Doublon d'équipe (par équipe)
---
--- 3. Les variables :NEW contiennent les valeurs de la ligne à insérer
---    Exemple: :NEW.gold = la valeur de la colonne 'gold' dans l'INSERT
---
--- 4. Ces triggers ne gèrent pas les UPDATE
---    Pour les UPDATE, créer des triggers séparés avec BEFORE UPDATE
---
--- 5. Performance: 3 requêtes SELECT par trigger
---    Alternative: Une seule requête avec IN () pour vérifier les 3 en même temps
--- ====================================================================
+CREATE OR REPLACE TRIGGER VerifierMemePaysEquipe
+BEFORE INSERT OR UPDATE ON LesMembresEquipes
+FOR EACH ROW
+DECLARE
+    v_pays_nouveau_membre VARCHAR2(20);
+    v_pays_premier_membre VARCHAR2(20);
+    v_nombre_membres NUMBER;
+BEGIN
+    -- 1. Récupérer le pays du nouveau sportif
+    SELECT pays INTO v_pays_nouveau_membre
+    FROM LesSportifs
+    WHERE idS = :NEW.idS;
+    
+    -- 2. Vérifier s'il y a déjà des membres dans l'équipe
+    SELECT COUNT(*) INTO v_nombre_membres
+    FROM LesMembresEquipes
+    WHERE idEq = :NEW.idEq;
+    
+    -- 3. Si ce n'est pas le premier membre de l'équipe
+    IF v_nombre_membres > 0 THEN
+        -- Récupérer le pays du premier membre de l'équipe
+        SELECT DISTINCT s.pays INTO v_pays_premier_membre
+        FROM LesSportifs s
+        JOIN LesMembresEquipes me ON s.idS = me.idS
+        WHERE me.idEq = :NEW.idEq
+        AND ROWNUM = 1;  -- Premier membre trouvé
+        
+        -- 4. Vérifier que le nouveau membre a le même pays
+        IF v_pays_nouveau_membre != v_pays_premier_membre THEN
+            RAISE_APPLICATION_ERROR(-20015,
+                'Le sportif ' || :NEW.idS || ' (pays: ' || v_pays_nouveau_membre || 
+                ') ne peut pas rejoindre l''équipe ' || :NEW.idEq || 
+                ' car les membres actuels sont du pays: ' || v_pays_premier_membre ||
+                '. Tous les membres d''une équipe doivent être du même pays.');
+        END IF;
+    END IF;
+END;
+/
