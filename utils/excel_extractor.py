@@ -35,15 +35,15 @@ def read_excel_file_V0(data:sqlite3.Connection, file):
     cursor = data.cursor()
     for ix, row in df_equipes.iterrows():
         try:
-            if row['numEq'] != 'null':
-                query = "insert or ignore into LesEquipes values ('{}')".format(
-                    row['numEq'])
-
-            # On affiche la requête pour comprendre la construction. A enlever une fois compris.
+            if row['numEq'] == 'null':
+                continue
+            query = "insert or ignore into LesEquipes values ('{}')".format(row['numEq'])
             print(query)
-            cursor.execute(query)
+            cursor.execute(query)  # Pas de paramètres
         except IntegrityError as err:
             print(f"{err} : \n{row}")
+
+
 
 
 # ---------------------------------------------
@@ -61,7 +61,7 @@ def read_excel_file_V0(data:sqlite3.Connection, file):
 
                 # On affiche la requête pour comprendre la construction. A enlever une fois compris.
                 print(query)
-            cursor.execute(query)
+                cursor.execute(query)
         except IntegrityError as err:
             print(f"{err} : \n{row}") 
 
@@ -70,6 +70,8 @@ def read_excel_file_V0(data:sqlite3.Connection, file):
 # ---------------------------------------------
     df_epreuves = pandas.read_excel(file, sheet_name='LesEpreuves', dtype=str)
     df_epreuves = df_epreuves.where(pandas.notnull(df_epreuves), 'null')
+    forme_par_ep = dict(zip(df_epreuves['numEp'], df_epreuves['formeEp']))
+
 
     cursor = data.cursor()
     for ix, row in df_epreuves.iterrows():
@@ -91,23 +93,31 @@ def read_excel_file_V0(data:sqlite3.Connection, file):
 # ---------------------------------------------
 # INSERT LesInscriptionsEpreuvesIndividuelles et LesInscriptionsEpreuvesParEquipes 
 # ---------------------------------------------
+
     df_ins = pandas.read_excel(file, sheet_name='LesInscriptions', dtype=str)
     df_ins = df_ins.where(pandas.notnull(df_ins), 'null')
 
     cursor = data.cursor()
     for ix, row in df_ins.iterrows():
         try:
-            if int(row['numIn']) <= 1000:
-                query = "insert or ignore into LesInscriptionsEpreuvesIndividuelles values ('{}','{}')".format(
-                row['numEp'], row['numIn'])
+            numEp = row['numEp']
+            numIn = row['numIn']
+            forme = forme_par_ep.get(numEp)  # 'individuelle' ou 'par equipe' / 'par couple'
+
+            if forme == 'individuelle':
+                # numIn = idS
+                query = "insert or ignore into LesInscriptionsEpreuvesIndividuelles values ('{}', '{}')".format(numEp, numIn)
+                print(query)
+                cursor.execute(query) 
             else:
-                query = "insert or ignore into LesInscriptionsEpreuvesParEquipes values ('{}','{}')".format(
-                row['numIn'], row['numEp'])
-            # On affiche la requête pour comprendre la construction. A enlever une fois compris.
-            print(query)
-            cursor.execute(query)
+                # numIn = idEq
+                query = "insert or ignore into LesInscriptionsEpreuvesParEquipes values ('{}', '{}')".format(numEp, numIn)
+                print(query)
+                cursor.execute(query)
         except IntegrityError as err:
             print(f"{err} : \n{row}")
+
+
 
 
 # ---------------------------------------------
@@ -119,16 +129,18 @@ def read_excel_file_V0(data:sqlite3.Connection, file):
     cursor = data.cursor()
     for ix, row in df_medailles.iterrows():
         try:
-            gold = int(row['gold'])
-            if gold < 1500:
+            numEp = row['numEp'] 
+            forme = forme_par_ep.get(numEp) 
+            
+            if forme == 'individuelle':
                 query = "insert into LesMedaillesIndividuelle values ('{}','{}','{}','{}')".format(
-                        row['numEp'], row['gold'], row['silver'], row['bronze'])
+                    numEp, row['gold'], row['silver'], row['bronze'])
+                print(query)
+                cursor.execute(query)
             else:
                 query = "insert into LesMedaillesEquipe values ('{}','{}','{}','{}')".format(
-                        row['numEp'], row['gold'], row['silver'], row['bronze'])
-
-            # On affiche la requête pour comprendre la construction. A enlever une fois compris.
-            print(query)
-            cursor.execute(query)
-        except IntegrityError as err:
-            print(f"{err} : \n{row}") 
+                    numEp, row['gold'], row['silver'], row['bronze'])
+                print(query)
+                cursor.execute(query)
+        except (KeyError, IntegrityError) as err:
+            print(f"{err} : \n{row}")
