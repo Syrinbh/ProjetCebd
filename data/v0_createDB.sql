@@ -106,3 +106,61 @@ CONSTRAINT IPE_PK1 PRIMARY KEY (idEq, idEp),
 CONSTRAINT IPE_FK1 FOREIGN KEY (idEq) REFERENCES LesEquipes(idEq),
 CONSTRAINT IPE_FK2 FOREIGN KEY (idEp) REFERENCES LesEpreuvesParEquipe(idEp)
 );
+
+-----------------------------------
+-- VIEWS
+----------------------------------
+
+DROP VIEW IF EXISTS LesAgesSportifs;
+DROP VIEW IF EXISTS LesNbsEquipiers;
+DROP VIEW IF EXISTS MoyenneAge;
+DROP VIEW IF EXISTS ClassementPays;
+
+
+CREATE VIEW LesAgesSportifs AS
+SELECT
+    idS,
+    nom,
+    prenom,
+    pays,
+    sexe,
+    date_nais,
+    CAST(
+        (strftime('%Y', 'now') - strftime('%Y', date_nais))
+        - (strftime('%m-%d', 'now') < strftime('%m-%d', date_nais))
+    AS INTEGER) AS ageSp
+FROM LesSportifs;
+
+
+    
+CREATE VIEW LesNbsEquipiers(numEq, nbEquipiersEq) AS
+    SELECT idEq AS NumEq ,COUNT(idS) AS nbEquipiersEq
+    FROM LesMembresEquipes
+        GROUP BY idEq;
+                
+        
+CREATE VIEW MoyenneAge(idEq, moyAge) AS
+    SELECT idEq, ROUND(AVG(ageSp),2) as MoyAge
+    FROM LesAgesSportifs
+    JOIN LesMembresEquipes USING(idS)
+    JOIN LesMedaillesEquipe ON (gold = idEq)
+    GROUP BY idEq;
+    
+
+        
+CREATE VIEW ClassementPays AS
+SELECT 
+    s.pays,
+    COUNT(mi_gold.idEp) + COUNT(me_gold.idEp) AS nbOr,
+    COUNT(mi_argent.idEp) + COUNT(me_argent.idEp) AS nbArgent,
+    COUNT(mi_bronze.idEp) + COUNT(me_bronze.idEp) AS nbBronze
+FROM LesSportifs s
+LEFT JOIN LesMedaillesIndividuelle mi_gold ON mi_gold.gold = s.idS
+LEFT JOIN LesMedaillesEquipe me_gold ON me_gold.gold IN (SELECT idEq FROM LesMembresEquipes WHERE idS = s.idS)
+LEFT JOIN LesMedaillesIndividuelle mi_argent ON mi_argent.argent = s.idS  
+LEFT JOIN LesMedaillesEquipe me_argent ON me_argent.argent IN (SELECT idEq FROM LesMembresEquipes WHERE idS = s.idS)
+LEFT JOIN LesMedaillesIndividuelle mi_bronze ON mi_bronze.bronze = s.idS
+LEFT JOIN LesMedaillesEquipe me_bronze ON me_bronze.bronze IN (SELECT idEq FROM LesMembresEquipes WHERE idS = s.idS)
+
+GROUP BY s.pays
+ORDER BY nbOr DESC, nbArgent DESC, nbBronze DESC;
