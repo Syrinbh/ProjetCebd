@@ -1,5 +1,6 @@
 import sqlite3
 
+
 # Fonction permettant d'exécuter toutes les requêtes sql d'un fichier
 # Elles doivent être séparées par un point-virgule
 def updateDBfile(data:sqlite3.Connection, file, trigger=False):
